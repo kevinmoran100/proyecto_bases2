@@ -1,3 +1,162 @@
+-- *****************************************************************************************}
+-- Consulta no. 4
+-- vista de equipos descendidos por liga
+-- drop view if exists descenso;
+create view descenso as
+select l.liga, e.nombre
+	from liga as l, equipo as e
+	where e.nombre in(
+		select distinct e1.nombre
+			from equipo as e1, partido as p, jornada as j
+			where p.equipo_equipo = e1.equipo
+			and p.jornada_jornada = j.jornada
+			and j.liga_liga = l.liga
+	)
+	and e.nombre not in(
+		select distinct e1.nombre
+			from equipo as e1, partido as p, jornada as j
+			where p.equipo_equipo = e1.equipo
+			and p.jornada_jornada = j.jornada
+			and j.liga_liga = l.liga + 1
+	);
+
+	-- select * from descenso order by liga;
+
+
+-- *************************************************************************************************
+-- Consulta no. 7
+-- Responder ¿Cuál ha sido la victoria más abultada de los últimos 18 años? Partido, equipos y marcador.
+
+
+-- duda.. tiene que ser el partido que se halla ganado con mas goles o que mas goles se hallan anotado?
+select fecha, e1.nombre as equipo_local, goles_local, e2.nombre as equipo_visitante, goles_visita from partido as p, equipo e1, equipo e2
+	where not exists (
+		select * from partido as p1
+		where abs(p1.goles_local-p1.goles_visita)>abs(p.goles_local-p.goles_visita)
+	)
+	and p.equipo_equipo = e1.equipo
+	and p.equipo_equipo1 = e2.equipo;
+
+
+	-- *************************************************************************************************
+	-- consulta no. 8
+	-- Realizar un stored procedure que la temporada (id o año) y que devuelva el historial de los equipos que han ocupado el primer puesto de la liga de inicio a fin de temporada, con fechas y puntos.
+	-- drop procedure if exists Primeros;
+  create procedure Primeros @Temporada int
+  as
+	select l.liga, jx.numero as jornada, e.nombre
+		from liga as l, jornada as jx, equipo as e
+		where jx.liga_liga = l.liga
+			and l.liga = @Temporada
+			and e.nombre = (
+				select top 1 gan2.nombre from (
+				select sum (ganados*3) as ganados , gan.nombre from  (
+				select count (equipo) as ganados, nombre from (Select e.equipo, e.nombre  from  partido as p, jornada as j , equipo e
+				 where j.liga_liga =  @Temporada
+				 AND j.numero <= jx.numero
+				 AND p.jornada_jornada = j.jornada
+				 AND ((p.equipo_equipo = e.equipo
+				 AND p.goles_local > p.goles_visita)
+				 OR (p.equipo_equipo1 = e.equipo
+				 AND p.goles_local < p.goles_visita))) as tab
+				 group by nombre
+				 ) as gan
+				 group by nombre
+				 union
+				select sum (ganados) as ganados, gan.nombre from  (
+				select count (equipo) as ganados, nombre from (Select e.equipo, e.nombre  from  partido as p, jornada as j , equipo e
+				 where j.liga_liga =  @Temporada
+				 AND j.numero <= jx.numero
+				 AND p.jornada_jornada = j.jornada
+				 AND ((p.equipo_equipo = e.equipo
+				 AND p.goles_local = p.goles_visita)
+				 OR (p.equipo_equipo1 = e.equipo
+				 AND p.goles_local = p.goles_visita))) as tab
+				 group by nombre
+				 ) as gan
+				  group by nombre
+				 union
+				select sum (ganados*0) as ganados, gan.nombre from  (
+				select count (equipo) as ganados, nombre from (Select e.equipo, e.nombre  from  partido as p, jornada as j , equipo e
+				 where j.liga_liga =  @Temporada
+				 AND j.numero <= jx.numero
+				 AND p.jornada_jornada = j.jornada
+				 AND ((p.equipo_equipo = e.equipo
+				 AND p.goles_local < p.goles_visita)
+				 OR (p.equipo_equipo1 = e.equipo
+				 AND p.goles_local > p.goles_visita))) as tab
+				 group by nombre
+				 ) as gan
+				  group by nombre
+				  ) as gan2
+				  group by nombre
+				  order by sum (ganados) desc
+			)order by jornada
+
+-- *************************************************************************************************
+-- consulta no. 9
+-- Realizar un stored procedure que la temporada (id o año) y que devuelva el historial de los equipos que han ocupado el último puesto de la liga de inicio a fin de temporada, con fechas y puntos.
+
+-- drop procedure if exists Primeros;
+  create procedure Ultimos @Temporada int
+  as
+	select l.liga, jx.numero as jornada, e.nombre
+		from liga as l, jornada as jx, equipo as e
+		where jx.liga_liga = l.liga
+			and l.liga = @Temporada
+			and e.nombre = (
+				select top 1 gan2.nombre from (
+				select sum (ganados*3) as ganados , gan.nombre from  (
+				select count (equipo) as ganados, nombre from (Select e.equipo, e.nombre  from  partido as p, jornada as j , equipo e
+				 where j.liga_liga =  @Temporada
+				 AND j.numero <= jx.numero
+				 AND p.jornada_jornada = j.jornada
+				 AND ((p.equipo_equipo = e.equipo
+				 AND p.goles_local > p.goles_visita)
+				 OR (p.equipo_equipo1 = e.equipo
+				 AND p.goles_local < p.goles_visita))) as tab
+				 group by nombre
+				 ) as gan
+				 group by nombre
+				 union
+				select sum (ganados) as ganados, gan.nombre from  (
+				select count (equipo) as ganados, nombre from (Select e.equipo, e.nombre  from  partido as p, jornada as j , equipo e
+				 where j.liga_liga =  @Temporada
+				 AND j.numero <= jx.numero
+				 AND p.jornada_jornada = j.jornada
+				 AND ((p.equipo_equipo = e.equipo
+				 AND p.goles_local = p.goles_visita)
+				 OR (p.equipo_equipo1 = e.equipo
+				 AND p.goles_local = p.goles_visita))) as tab
+				 group by nombre
+				 ) as gan
+				  group by nombre
+				 union
+				select sum (ganados*0) as ganados, gan.nombre from  (
+				select count (equipo) as ganados, nombre from (Select e.equipo, e.nombre  from  partido as p, jornada as j , equipo e
+				 where j.liga_liga =  @Temporada
+				 AND j.numero <= jx.numero
+				 AND p.jornada_jornada = j.jornada
+				 AND ((p.equipo_equipo = e.equipo
+				 AND p.goles_local < p.goles_visita)
+				 OR (p.equipo_equipo1 = e.equipo
+				 AND p.goles_local > p.goles_visita))) as tab
+				 group by nombre
+				 ) as gan
+				  group by nombre 
+				  ) as gan2
+				  group by nombre
+				  order by sum (ganados) asc
+			)order by jornada
+
+-- *************************************************************************************************
+-- consulta no. 10
+-- Consulta que muestre al jugador con mejor promedio de goles de todas las temporadas.
+select top 1 jugador, nombre, avg(goles) as promedio_goles
+from jugador
+group by jugador,nombre
+order by promedio_goles desc;
+
 -- *************************************************************************************************
 -- consulta no. 11
 -- Consulta que muestre, cuántos goles se anotaron en cada temporada, que equipo
